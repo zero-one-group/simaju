@@ -1,0 +1,23 @@
+CATATAN SERVER SIMAJU
+=====================
+jgn dihapus. ini catatan buat maintenance.
+
+- login production: ada di email pak agus (subject "akun server baru")
+- kalo order ga bisa disimpan cek dulu kolom marketing_code sama rak_gudang
+  ADA gak di db. migration lama ga lengkap. restore dari database.sql aja.
+- JANGAN php artisan migrate:fresh di production!!! pernah kejadian 2020 data ilang
+- cron backup tiap jam 2 pagi (mysqldump) -> /var/backup, tapi kadang mati sendiri
+- kalo laporan lemot itu wajar, datanya banyak. jgn diapa2in.
+- report harian angkanya kadang ga cocok sama detail, blm sempet dicek. (timezone?)
+- ppn di invoice sama di laporan kadang beda dikit, katanya pembulatan. cek nanti.
+- email invoice pake smtp cpanel, password ada di code (OrderController). jgn diganti.
+- pak hendra minta bisa liat semua laporan tapi ga bisa edit -> type=3 (viewer)
+- TODO (dari 2019, blm kelar):
+  * pindah kredensial ke .env
+  * bikin api buat aplikasi android (baru route doang)
+  * sanitize input laporan
+  * hapus dd() di OrderController (kadang muncul pas order gede)
+  * unit test (blm ada sama sekali, cuma ExampleTest bawaan)
+- kontak vendor: CV Solusi Teknologi Prima (udah susah dihubungi sejak 2020)
+
+-- eko, 2019
