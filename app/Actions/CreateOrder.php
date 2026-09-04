@@ -5,26 +5,26 @@ use DB;
 use App\Product;
 use App\OrderDetail;
 use App\Exceptions\OrderValidationException;
-use App\Services\PriceCalculator;
 use App\Services\StockChecker;
 use App\Services\InvoiceGenerator;
 use App\Services\OrderNotifier;
+use App\Domain\OrderCalculator;
 
 class CreateOrder
 {
     protected $stockChecker;
-    protected $priceCalculator;
+    protected $orderCalculator;
     protected $invoiceGenerator;
     protected $orderNotifier;
 
     public function __construct(
         StockChecker $stockChecker, 
-        PriceCalculator $priceCalculator, 
+        OrderCalculator $orderCalculator, 
         InvoiceGenerator $invoiceGenerator, 
         OrderNotifier $orderNotifier
     ) {
         $this->stockChecker = $stockChecker;
-        $this->priceCalculator = $priceCalculator;
+        $this->orderCalculator = $orderCalculator;
         $this->invoiceGenerator = $invoiceGenerator;
         $this->orderNotifier = $orderNotifier;
     }
@@ -93,7 +93,12 @@ class CreateOrder
         $data2 = $stockPrep['items'];
         $total_qty = $stockPrep['total_qty'];
 
-        $prices = $this->priceCalculator->calculate($data2, $diskon_persen, $customer);
+        $subtotal_items = 0;
+        foreach ($data2 as $d) {
+            $subtotal_items += $d['subtotal'];
+        }
+
+        $prices = $this->orderCalculator->calculate($subtotal_items, $diskon_persen, $customer->tipe);
         $subtotal = $prices['subtotal'];
         $diskon_persen_final = $prices['diskon_persen'];
         $diskon = $prices['diskon'];

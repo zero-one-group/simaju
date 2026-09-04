@@ -92,12 +92,12 @@ class LaporanController extends Controller
 
             // hitung ulang total buat cek selisih (kadang beda sama yg di db)
             // copy dari OrderController biar sama
-            $sub = $order->subtotal;
-            $dp = $order->diskon_persen;
-            $dk = $sub * $dp / 100;
-            $dpp = $sub - $dk;
-            $pp = $dpp * 0.1;
-            $tot = round($dpp + $pp);
+            $calc = new \App\Domain\OrderCalculator();
+            $tipe = $order->customer ? $order->customer->tipe : 'retail';
+            $manual_dp = $calc->extractManualDiskon($order->subtotal, $order->diskon_persen, $tipe);
+            $res = $calc->calculate($order->subtotal, $manual_dp, $tipe);
+            $tot = $res['total'];
+            
             $row['total_hitung'] = $tot;
             $row['selisih'] = $order->total - $tot;
             $total_cek += $tot;
