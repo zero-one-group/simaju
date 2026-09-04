@@ -39,16 +39,16 @@ def test_report_summary_and_bug(client, db_conn, get_csrf):
     assert order_row is not None
     tds = order_row.find_all('td')
     
-    # LaporanController calculates total differently from OrderController
+    # LaporanController used to calculate total differently from OrderController
+    # but we unified it under App\Domain\OrderCalculator.
     # Order: Sub 1,000,000, Diskon 10% (100,000), PPN 100,000 -> Total 1,000,000
-    # Laporan: Sub 1,000,000, Diskon 100,000, DPP 900,000, PPN 90,000 -> Total Hitung 990,000
-    # Selisih = 10,000
+    # Laporan should now match identically.
     
     total_db = tds[10].text.strip().replace('.', '')
     selisih = tds[11].text.strip().replace('.', '')
     
     assert total_db == "1000000"
-    assert selisih == "10000" # KNOWN-DEVIATION
+    assert selisih == "0" # FIXED
 
 def test_report_timezone_bug(client, db_conn, get_csrf):
     token = get_csrf("/order/create")
