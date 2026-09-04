@@ -3,6 +3,9 @@ services:
     build:
       context: ./docker/php
     container_name: simaju_app
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     volumes:
       - ./:/var/www/html
     depends_on:
