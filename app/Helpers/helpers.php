@@ -53,30 +53,8 @@ if (!function_exists('hitung_total')) {
      */
     function hitung_total($subtotal, $diskon_persen, $tipe_customer = 'retail')
     {
-        $diskon_persen = (float) $diskon_persen;
-        // diskon otomatis
-        if ($subtotal >= 20000000) {
-            $diskon_persen = $diskon_persen + 5;
-        } else if ($subtotal >= 5000000) {
-            $diskon_persen = $diskon_persen + 2;
-        }
-        if ($tipe_customer == 'grosir') {
-            $diskon_persen = $diskon_persen + 3;
-        }
-        if ($diskon_persen > 30) {
-            $diskon_persen = 30; // max diskon
-        }
-        $diskon = $subtotal * $diskon_persen / 100;
-        $ppn = $subtotal * 0.1; // ppn 10%
-        $total = $subtotal + $ppn - $diskon;
-
-        return array(
-            'subtotal' => $subtotal,
-            'diskon_persen' => $diskon_persen,
-            'diskon' => $diskon,
-            'ppn' => $ppn,
-            'total' => $total,
-        );
+        $calc = new \App\Domain\OrderCalculator();
+        return $calc->calculate($subtotal, $diskon_persen, $tipe_customer);
     }
 }
 

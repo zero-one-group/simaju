@@ -30,35 +30,19 @@ class LaporanController extends Controller
         $customer_id = $request->get('customer_id');
         $status = $request->get('status');
 
-        // default semua data kalo gak difilter (request dari pak Hendra biar bisa liat semua)
-        $where = " WHERE 1=1 ";
-        if ($dari != '') {
-            $where .= " AND o.tgl_order >= '$dari 00:00:00' "; // TODO sanitize?
-        }
-        if ($sampai != '') {
-            $where .= " AND o.tgl_order <= '$sampai 23:59:59' ";
-        }
-        if ($customer_id != '') {
-            $where .= " AND o.customer_id = " . intval($customer_id);
-        }
-        if ($status != '' && $status != 'semua') {
-            $where .= " AND o.status = '" . $status . "' ";
-        }
+        $report = new \App\Queries\SalesReport($dari, $sampai, $customer_id, $status);
 
         // ---- summary ----
-        // NOTE: summary ini jumlah semua order sesuai filter
-        $summary = DB::select("SELECT COUNT(*) as jml_order, IFNULL(SUM(o.subtotal),0) as subtotal, IFNULL(SUM(o.diskon),0) as diskon, IFNULL(SUM(o.ppn),0) as ppn, IFNULL(SUM(o.total),0) as total FROM tbl_orders o " . $where);
-        $summary = $summary[0];
+        $summary = $report->getSummary();
 
         // ---- per hari ----
-        // tgl_order disimpan UTC (default laravel), convert ke WIB dulu +7 jam
-        $per_hari = DB::select("SELECT DATE(DATE_ADD(o.tgl_order, INTERVAL 7 HOUR)) as tgl, COUNT(*) as jml, SUM(o.total) as total FROM tbl_orders o " . $where . " AND o.status != 'deleted' GROUP BY DATE(DATE_ADD(o.tgl_order, INTERVAL 7 HOUR)) ORDER BY tgl DESC");
+        $per_hari = $report->getPerHari();
 
         // ---- per status ----
-        $per_status = DB::select("SELECT o.status, COUNT(*) as jml, SUM(o.total) as total FROM tbl_orders o " . $where . " AND o.status != 'deleted' GROUP BY o.status");
+        $per_status = $report->getPerStatus();
 
         // ---- detail order ----
-        $orders = DB::select("SELECT o.* FROM tbl_orders o " . $where . " AND o.status != 'deleted' ORDER BY o.tgl_order DESC");
+        $orders = $report->getOrders();
 
         // convert ke model biar bisa pake relasi
         $list = array();
@@ -92,12 +76,12 @@ class LaporanController extends Controller
 
             // hitung ulang total buat cek selisih (kadang beda sama yg di db)
             // copy dari OrderController biar sama
-            $sub = $order->subtotal;
-            $dp = $order->diskon_persen;
-            $dk = $sub * $dp / 100;
-            $dpp = $sub - $dk;
-            $pp = $dpp * 0.1;
-            $tot = round($dpp + $pp);
+            $calc = new \App\Domain\OrderCalculator();
+            $tipe = $order->customer ? $order->customer->tipe : 'retail';
+            $manual_dp = $calc->extractManualDiskon($order->subtotal, $order->diskon_persen, $tipe);
+            $res = $calc->calculate($order->subtotal, $manual_dp, $tipe);
+            $tot = $res['total'];
+            
             $row['total_hitung'] = $tot;
             $row['selisih'] = $order->total - $tot;
             $total_cek += $tot;
@@ -106,7 +90,7 @@ class LaporanController extends Controller
         }
 
         // ---- top produk ----
-        $top_produk = DB::select("SELECT oi.product_id, SUM(oi.qty) as qty, SUM(oi.subtotal) as total FROM order_items oi JOIN tbl_orders o ON o.id = oi.order_id " . $where . " AND o.status != 'deleted' GROUP BY oi.product_id ORDER BY qty DESC LIMIT 10");
+        $top_produk = $report->getTopProduk();
         foreach ($top_produk as $tp) {
             $p = Product::find($tp->product_id);
             $tp->nama = $p ? $p->nama_barang : '-';
@@ -114,7 +98,7 @@ class LaporanController extends Controller
         }
 
         // ---- top customer ----
-        $top_customer = DB::select("SELECT o.customer_id, COUNT(*) as jml, SUM(o.total) as total FROM tbl_orders o " . $where . " AND o.status != 'deleted' GROUP BY o.customer_id ORDER BY total DESC LIMIT 10");
+        $top_customer = $report->getTopCustomer();
         foreach ($top_customer as $tc) {
             $c = Customer::find($tc->customer_id);
             $tc->nama = $c ? $c->nama : '-';
@@ -145,15 +129,7 @@ class LaporanController extends Controller
         $dari = $request->get('dari');
         $sampai = $request->get('sampai');
 
-        $sql = "SELECT o.no_order, o.tgl_order, c.nama as customer, c.kota, u.name as sales, o.status, o.subtotal, o.diskon_persen, o.diskon, o.ppn, o.total, o.marketing_code
-                FROM tbl_orders o
-                LEFT JOIN tbl_customers c ON c.id = o.customer_id
-                LEFT JOIN users u ON u.id = o.user_id
-                WHERE o.status != 'deleted' ";
-        if ($dari) $sql .= " AND o.tgl_order >= '$dari 00:00:00' ";
-        if ($sampai) $sql .= " AND o.tgl_order <= '$sampai 23:59:59' ";
-        $sql .= " ORDER BY o.tgl_order DESC";
-        $rows = DB::select($sql);
+        $rows = \App\Queries\SalesReport::getExportCsvData($dari, $sampai);
 
         $filename = 'export_order_' . date('Ymd_His') . '.csv';
 
